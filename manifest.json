@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "轻评 · X 智能评论",
+  "version": "1.0.0",
+  "description": "为 Twitter / X 推文生成多种风格的评论，选择后填入回复框，由你编辑并发布。",
+  "minimum_chrome_version": "114",
+  "permissions": ["storage", "contextMenus"],
+  "optional_host_permissions": ["https://*/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_title": "轻评 · 打开设置" },
+  "options_page": "options.html",
+  "content_scripts": [{
+    "matches": ["https://x.com/*", "https://www.x.com/*", "https://twitter.com/*", "https://www.twitter.com/*"],
+    "js": ["tweet-dom.js", "content.js"],
+    "run_at": "document_idle"
+  }],
+  "content_security_policy": { "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'" }
+}
