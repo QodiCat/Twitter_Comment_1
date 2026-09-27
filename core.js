@@ -81,13 +81,13 @@ export function buildRequest(settings, apiKey, tweet, templateId) {
 
 export function parseComments(data, provider, count) {
   const text = provider === "claude"
-    ? data?.content?.filter(b => b.type === "text").map(b => b.text).join("\n")
+    ? (Array.isArray(data?.content) ? data.content.filter(b => b.type === "text").map(b => b.text).join("\n") : null)
     : data?.choices?.[0]?.message?.content;
   if (typeof text !== "string" || !text.trim()) throw new Error("模型没有返回评论，请检查模型 ID 或重试。");
   let result;
   try { result = JSON.parse(text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")); }
   catch { throw new Error("模型返回格式不正确，请重新生成或换一个支持 JSON 输出的模型。"); }
-  const comments = Array.isArray(result) ? result : result.comments;
+  const comments = Array.isArray(result) ? result : result?.comments;
   if (!Array.isArray(comments) || comments.length !== count || comments.some(t => typeof t !== "string" || !t.trim() || [...t.trim()].length > 280)) {
     throw new Error(`模型需返回 ${count} 条非空评论，每条不超过 280 字，请重新生成。`);
   }

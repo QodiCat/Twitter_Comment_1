@@ -7,7 +7,13 @@ let keyPromise;
 let saving = false;
 const getKey = () => keyPromise ??= deviceKey().catch(error => { keyPromise = undefined; throw error; });
 const isX = url => { try { return new URL(url).protocol === "https:" && /^(www\.)?(x|twitter)\.com$/.test(new URL(url).hostname); } catch { return false; } };
-const isOptions = sender => sender.id === chrome.runtime.id && sender.url === chrome.runtime.getURL("options.html");
+const isOptions = sender => {
+  try {
+    const url = new URL(sender.url);
+    url.hash = "";
+    return sender.id === chrome.runtime.id && url.href === chrome.runtime.getURL("options.html");
+  } catch { return false; }
+};
 
 async function readState() {
   await ready;

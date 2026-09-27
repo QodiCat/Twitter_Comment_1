@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>轻评 · 设置</title>
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="options.js"></script>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <a class="brand" href="#"><span class="brand-mark">✦</span><span>轻评<small>QINGPING</small></span></a>
+      <div class="side-label">你的表达工作台</div>
+      <nav aria-label="设置导航"><a href="#connection" class="nav-item">↗ <span>模型连接</span><span class="nav-dot"></span></a><a href="#templates" class="nav-item">✧ <span>提示词模板</span></a><a href="#preferences" class="nav-item">☷ <span>生成偏好</span></a></nav>
+      <div class="side-bottom"><div class="little-orbit">✳</div><p>保留你的想法，<br>找到更好的表达。</p><span>为 Twitter / X 而作 · v1.0</span></div>
+    </aside>
+    <main>
+      <header class="page-heading"><div class="eyebrow">A LITTLE INSPIRATION, A BETTER CONVERSATION</div><h1>让每一次回复，<em>都有你的风格。</em></h1><p>连接你喜欢的模型，调好语气，把灵感留给下一次对话。</p></header>
+      <div class="intro"><span class="intro-icon">✦</span><div><strong>从一条推文，开始一段好对话</strong><p>在 X 点击「智能评论」→ 选择表达风格 → 挑选并填入回复。</p></div><span class="pill">由你决定发布</span></div>
+      <form id="settings-form">
+        <section class="card" id="connection">
+          <div class="section-heading"><span class="section-number">01</span><div><h2>连接模型</h2><p>使用你自己的 API 服务，直接与模型对话。</p></div><span id="key-status" class="badge">尚未配置</span></div>
+          <div class="grid"><label>模型服务<select id="provider"><option value="openai">OpenAI</option><option value="claude">Claude / Anthropic</option><option value="kimi">Kimi / Moonshot</option><option value="custom">自定义 OpenAI 兼容接口</option></select></label><label>模型 ID<input id="model" type="text" maxlength="160" placeholder="填写服务控制台中的模型 ID" required><span class="hint">以你的账号可用模型为准。</span></label></div>
+          <label>API 基础地址<input id="base-url" type="url" placeholder="https://api.example.com/v1" required><span class="hint">填写基础地址，不含 /chat/completions 或 /messages。保存时仅申请此网站的访问权限。</span></label>
+          <label for="api-key">API Key</label><div class="key-row"><input id="api-key" type="password" autocomplete="new-password" spellcheck="false" placeholder="输入 API Key；留空保留当前服务已保存的密钥" maxlength="4096"><button type="button" id="toggle-key" class="subtle" aria-label="显示 API Key" aria-pressed="false">显示</button></div>
+          <div class="connection-footer"><span class="hint">密钥在本机加密保存，不参与浏览器同步。</span><button id="delete-key" type="button" class="text-button danger">删除已保存密钥</button></div>
+          <details><summary>关于数据和本地加密</summary><p>点击生成后，仅将目标推文文字、提示词和生成偏好发送到你配置的模型服务。API Key 仅发送至该服务用于认证。插件没有中转服务器，不读取账号密码，不自动发布。</p><p>使用 AES-GCM 加密密钥，加密用的不可导出 CryptoKey 存在扩展本机 IndexedDB 中。这能避免明文落盘，但不能抵御已控制本机或扩展运行环境的攻击者。更换服务或 API 地址后需重新填写密钥。</p></details>
+        </section>
+        <section class="card" id="templates">
+          <div class="section-heading"><span class="section-number">02</span><div><h2>找到你的语气</h2><p>把常用的表达方式，保存成随时可用的灵感模板。</p></div><button type="button" id="add-template" class="subtle">＋ 新建模板</button></div>
+          <div id="template-list" class="template-list" role="group" aria-label="提示词模板"></div>
+          <div class="template-editor"><div class="template-top"><label>模板名称<input id="template-name" type="text" maxlength="40" required></label><button id="delete-template" type="button" class="text-button danger">删除此模板</button></div><label>如何表达<textarea id="template-prompt" rows="4" maxlength="4000" required placeholder="描述语气、人设、长度，以及你希望避免的表达…"></textarea></label><div class="editor-footer"><span class="hint">例如：像朋友一样自然回应，简短具体，不要空泛赞美。</span><button type="button" id="default-template" class="text-button">设为默认</button></div></div>
+        </section>
+        <section class="card" id="preferences">
+          <div class="section-heading"><span class="section-number">03</span><div><h2>一点小偏好</h2><p>让每一组候选，都更接近你的习惯。</p></div></div>
+          <div class="grid"><label>每次生成<select id="count"><option value="3">3 条 · 刚刚好</option><option value="4">4 条 · 多一点选择</option><option value="5">5 条 · 更多灵感</option></select></label><label>回复语言<select id="language"><option value="auto">跟随推文语言</option><option value="zh">简体中文</option><option value="en">English</option></select></label></div>
+        </section>
+        <div class="save-bar"><div id="status" role="status" aria-live="polite">设置仅保存在当前浏览器。</div><div class="save-actions"><button type="button" id="test" class="secondary">测试已保存连接</button><button type="submit" id="save" class="primary">保存设置 <span>↗</span></button></div></div>
+      </form>
+      <section id="test-result" class="card test-result" hidden aria-label="连接测试结果"><h2>连接成功 · 生成预览</h2><p class="hint">测试推文：今天终于完成了一个一直想做的小项目，过程比预想中困难，但很值得。</p><ol id="test-comments"></ol></section>
+      <footer class="page-footer"><span>✦ 轻评</span><span>灵感由 AI 提供，表达由你掌握。</span></footer>
+    </main>
+  </div>
+</body>
+</html>

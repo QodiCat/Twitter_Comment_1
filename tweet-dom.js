@@ -5,7 +5,11 @@
   }
   function snapshot(article) {
     if (!article) return null;
-    const text = own(article, '[data-testid="tweetText"]')[0]?.textContent?.trim() || "";
+    const mainText = own(article, '[data-testid="tweetText"]').find(node => {
+      const quotedLink = node.closest('[role="link"]');
+      return !quotedLink || !article.contains(quotedLink);
+    });
+    const text = mainText?.textContent?.trim() || "";
     const time = own(article, 'a[href*="/status/"] time')[0];
     const href = time?.closest("a")?.href;
     const status = href?.match(/\/status\/(\d+)/)?.[1] || null;
@@ -40,9 +44,12 @@
       const dialog = [...document.querySelectorAll('[role="dialog"]')].find(d => !existing.has(d) && visible(d) && composer(d));
       if (dialog) {
         // Match the reply context before touching an editor. Never pick a global textbox.
-        const quoted = [...dialog.querySelectorAll(ARTICLE)].some(a => sameTarget(target, a));
+        const contexts = [...dialog.querySelectorAll(ARTICLE)];
+        const quoted = contexts.some(a => sameTarget(target, a));
         const contextText = dialog.querySelector('[data-testid="tweetText"]')?.textContent?.trim();
-        if (!quoted && (!target.text || contextText !== target.text)) {
+        const expectedText = target.fullText || target.text;
+        const hasContextId = contexts.some(a => snapshot(a).status);
+        if (!quoted && (hasContextId || !expectedText || contextText !== expectedText)) {
           throw new Error("无法确认回复窗口对应的推文，请复制评论手动粘贴。");
         }
         editor = composer(dialog);

@@ -1,0 +1,13 @@
+import { readFile, access, readdir } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import assert from "node:assert/strict";
+const manifest = JSON.parse(await readFile("manifest.json", "utf8"));
+assert.equal(manifest.manifest_version, 3);
+const files = [manifest.background.service_worker, manifest.options_page, ...manifest.content_scripts.flatMap(s => s.js), "core.js", "vault.js", "options.js", "styles.css"];
+for (const file of files) await access(file);
+for (const file of (await readdir(".")).filter(f => f.endsWith(".js"))) execFileSync(process.execPath, ["--check", file]);
+assert(!manifest.permissions.includes("<all_urls>"));
+assert(!manifest.host_permissions);
+const html = await readFile("options.html", "utf8");
+assert(!/\son\w+=/i.test(html), "No inline event handlers under MV3 CSP");
+console.log(`Manifest and JavaScript checks passed (${files.length} extension files).`);
