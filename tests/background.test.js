@@ -47,6 +47,20 @@ test("message boundary, encrypted persistence, generation and cancellation", asy
     const result = await message({ type: "GENERATE", requestId: "first", tweet: "目标推文", templateId: "natural" }, content);
     assert.equal(result.ok, true); assert.deepEqual(result.comments, ["one", "two", "three"]);
   });
+  await t.test("400 errors preserve saved credentials and blank-key saves keep the existing key", async () => {
+    const before = structuredClone(state.secret);
+    globalThis.fetch = async () => ({ ok: false, status: 400, json: async () => ({ error: {
+      message: "Unsupported model for this endpoint", code: "unsupported_model"
+    } }) });
+    const failed = await message({ type: "GENERATE", requestId: "bad-model", tweet: "text" }, options);
+    assert.equal(failed.ok, false);
+    assert.match(failed.error, /Unsupported model/);
+    assert.equal((await message({ type: "GET_SETTINGS" })).hasKey, true);
+    assert.deepEqual(state.secret, before);
+    const saved = await message({ type: "SAVE_SETTINGS", settings: { ...config(), model: "another-model" }, apiKey: "" });
+    assert.equal(saved.hasKey, true);
+    assert.deepEqual(state.secret, before);
+  });
   await t.test("cancel aborts an in-flight request and concurrent clicks cannot create duplicate calls", async () => {
     let started;
     const startedPromise = new Promise(resolve => { started = resolve; });

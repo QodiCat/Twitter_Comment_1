@@ -28,6 +28,23 @@
   function composer(dialog) {
     return [...dialog.querySelectorAll('[data-testid^="tweetTextarea_"][contenteditable="true"], [role="textbox"][contenteditable="true"]')].find(visible);
   }
+  function replyContextMatches(target, dialog) {
+    // Only inspect the primary context, never a quoted tweet or the draft itself.
+    const primary = [...dialog.querySelectorAll(ARTICLE)].find(node =>
+      !node.parentElement.closest(ARTICLE) && !node.closest('[role="link"]:not(a), [contenteditable="true"]'));
+    const scope = primary || dialog;
+    const nodes = selector => [...scope.querySelectorAll(selector)].filter(node =>
+      !node.closest('[contenteditable="true"]') &&
+      (!primary || node.closest(ARTICLE) === primary) &&
+      !node.closest('[role="link"]:not(a)'));
+    const time = nodes('a[href*="/status/"] time')[0];
+    const status = time?.closest('a')?.getAttribute('href')?.match(/\/status\/(\d+)/)?.[1];
+    if (target.status && status) return target.status === status;
+    const normalize = value => (value || '').replace(/\s+/gu, ' ').trim();
+    const expected = normalize(target.fullText || target.text);
+    const actual = normalize(nodes('[data-testid="tweetText"]')[0]?.textContent);
+    return Boolean(expected && actual === expected);
+  }
   async function fillReply(target, text) {
     const article = findArticle(target);
     if (!article) throw new Error("原推文已离开页面，请复制评论，或重新找到该推文再生成。");
@@ -40,23 +57,20 @@
     reply.click();
     const deadline = Date.now() + 7000;
     let editor;
+    let sawComposer = false;
     while (Date.now() < deadline) {
       const dialog = [...document.querySelectorAll('[role="dialog"]')].find(d => !existing.has(d) && visible(d) && composer(d));
       if (dialog) {
-        // Match the reply context before touching an editor. Never pick a global textbox.
-        const contexts = [...dialog.querySelectorAll(ARTICLE)];
-        const quoted = contexts.some(a => sameTarget(target, a));
-        const contextText = dialog.querySelector('[data-testid="tweetText"]')?.textContent?.trim();
-        const expectedText = target.fullText || target.text;
-        const hasContextId = contexts.some(a => snapshot(a).status);
-        if (!quoted && (hasContextId || !expectedText || contextText !== expectedText)) {
-          throw new Error("无法确认回复窗口对应的推文，请复制评论手动粘贴。");
+        sawComposer = true;
+        // The editor can mount before the reply context finishes rendering.
+        if (replyContextMatches(target, dialog)) {
+          editor = composer(dialog);
+          break;
         }
-        editor = composer(dialog);
-        break;
       }
       await new Promise(resolve => setTimeout(resolve, 100));
     }
+    if (!editor && sawComposer) throw new Error("无法确认回复窗口对应的推文，请复制评论手动粘贴。");
     if (!editor) throw new Error("没有找到可用的回复框，可能未登录或回复受限。请复制评论手动回复。");
     if (editor.textContent.trim()) throw new Error("回复框已有草稿，未覆盖。请复制评论后自行合并。");
     editor.focus();

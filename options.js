@@ -12,6 +12,9 @@ function keyStatus(hasKey) {
   $("key-status").textContent = hasKey ? "密钥已加密保存" : "尚未配置密钥";
   $("key-status").className = hasKey ? "badge ready" : "badge";
   $("delete-key").disabled = !hasKey;
+  $("api-key").placeholder = hasKey
+    ? "已保存（不回显密钥）；留空保持不变，输入新值可替换"
+    : "输入当前模型服务的 API Key";
 }
 function renderTemplates() {
   $("template-list").replaceChildren();
@@ -107,7 +110,7 @@ async function init() {
       const response = await send({ type: "SAVE_SETTINGS", settings: next, apiKey });
       settings = next; dirty = false; $("api-key").value = "";
       keyStatus(response.hasKey);
-      status(response.hasKey ? "设置已保存。返回 X 页面，点击推文下方的「智能评论」。" : "设置已保存。填写并保存 API Key 后即可生成评论。");
+      status(response.hasKey ? "设置和密钥已保存。为保护密钥，输入框不回显；无需重复填写。可测试连接或返回 X 生成评论。" : "设置已保存。填写并保存 API Key 后即可生成评论。");
     } catch (error) { status(error.message, true); }
     finally { setBusy(false); }
   };
@@ -121,7 +124,7 @@ async function init() {
       const response = await send({ type: "GENERATE", requestId: crypto.randomUUID(), templateId: settings.activeTemplateId, tweet: "今天终于完成了一个一直想做的小项目，过程比预想中困难，但很值得。" });
       $("test-comments").replaceChildren(...response.comments.map(text => { const li = document.createElement("li"); li.textContent = text; return li; }));
       $("test-result").hidden = false; status("连接成功，已生成测试评论。");
-    } catch (error) { status(error.message, true); }
+    } catch (error) { status(`连接测试失败（不会删除已保存的密钥）：${error.message}`, true); }
     finally { setBusy(false); $("test").textContent = "测试已保存连接"; }
   };
   window.addEventListener("beforeunload", event => { if (dirty) { event.preventDefault(); event.returnValue = ""; } });

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_SETTINGS, validateSettings, normalizeBaseUrl, buildRequest, parseComments, generateComments, keyBinding } from "../core.js";
+import { DEFAULT_SETTINGS, validateSettings, normalizeBaseUrl, buildRequest, parseComments, generateComments, keyBinding, serviceErrorDetail } from "../core.js";
 import { deviceKey, encryptSecret, decryptSecret } from "../vault.js";
 import "fake-indexeddb/auto";
 const config = overrides => validateSettings({ ...structuredClone(DEFAULT_SETTINGS), model: "test-model", ...overrides });
@@ -60,6 +60,22 @@ test("cancellation is reported and invalid service JSON is handled", async () =>
   const controller = new AbortController(); controller.abort();
   await assert.rejects(generateComments(config(), "key", "text", "natural", { signal: controller.signal, fetcher: async () => { throw new Error("aborted"); } }), /取消或请求超时/);
   await assert.rejects(generateComments(config(), "key", "text", "natural", { fetcher: async () => ({ ok: true, json: async () => { throw new Error(); } }) }), /无效 JSON/);
+});
+test("400 response exposes actionable service details and redacts echoed credentials", async () => {
+  const key = "test/private+credential";
+  await assert.rejects(generateComments(config(), key, "text", "natural", {
+    fetcher: async () => ({ ok: false, status: 400, json: async () => ({ error: {
+      message: `Unsupported parameter: messages[0].role. Key: ${key} ${encodeURIComponent(key)}`,
+      code: "unsupported_value", param: "messages[0].role"
+    }, headers: { Authorization: "NEVER DISPLAY" } }) })
+  }), error => error.message.includes("messages[0].role") && error.message.includes("unsupported_value")
+    && !error.message.includes(key) && !error.message.includes(encodeURIComponent(key)) && !error.message.includes("NEVER DISPLAY"));
+  assert.equal(serviceErrorDetail({ message: "<html>proxy error</html>" }, key), "");
+  assert.equal(serviceErrorDetail(null, key), "");
+  assert(!serviceErrorDetail({ error: { message: "Invalid key sk-proj-abcd****wxyz" } }, key).includes("sk-proj"));
+  assert(serviceErrorDetail({ error: { message: "x".repeat(900) } }, key).length <= 600);
+  const longKey = "fake-" + "k".repeat(800);
+  assert(!serviceErrorDetail({ error: { message: longKey } }, longKey).includes("kkkk"));
 });
 test("AES-GCM survives IndexedDB reload and rejects tampering, foreign destinations and extraction", async () => {
   const key = await deviceKey();

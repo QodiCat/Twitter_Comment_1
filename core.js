@@ -96,6 +96,26 @@ export function parseComments(data, provider, count) {
   return clean;
 }
 
+export function serviceErrorDetail(data, apiKey) {
+  // Only inspect recognized error fields, never echo headers or an entire response.
+  const error = data?.error;
+  const source = typeof error === "object" && error !== null ? error : data;
+  const fields = [typeof error === "string" ? error : source?.message,
+    source?.code, source?.type, source?.param];
+  let detail = fields.filter(value => typeof value === "string" && value.trim()).join(" · ");
+  if (!detail || /<\/?(?:html|body|script|!doctype)\b/i.test(detail)) return "";
+  if (apiKey) {
+    // Redact before truncating so even a long echoed credential cannot leak a prefix.
+    const variants = [apiKey, encodeURIComponent(apiKey), JSON.stringify(apiKey).slice(1, -1)];
+    for (const value of new Set(variants)) detail = detail.split(value).join("[密钥已隐藏]");
+  }
+  return detail
+    .replace(/\b(?:sk|sess)-[a-zA-Z0-9_*.-]+/gi, "[密钥已隐藏]")
+    .replace(/\bBearer\s+[^\s,"'}]+/gi, "Bearer [密钥已隐藏]")
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .slice(0, 600);
+}
+
 export async function generateComments(settings, apiKey, tweet, templateId, { fetcher = fetch, signal } = {}) {
   if (typeof tweet !== "string" || !tweet.trim()) throw new Error("没有读取到推文文字。图片和视频暂不识别。");
   if (tweet.length > 20000) throw new Error("推文过长，请选中需要评论的部分后使用右键菜单。");
@@ -108,8 +128,10 @@ export async function generateComments(settings, apiKey, tweet, templateId, { fe
   }
   if (!response.ok) {
     const hints = { 400: "请求参数或模型不受支持", 401: "API Key 无效或已过期", 403: "没有此模型的访问权限", 404: "API 地址或模型 ID 不存在", 429: "请求过于频繁或额度不足" };
-    // Do not reflect provider error bodies: they can contain submitted credentials.
-    throw new Error(`模型服务返回 ${response.status}：${hints[response.status] || "服务暂时不可用，请稍后再试"}。`);
+    let detail = "";
+    try { detail = serviceErrorDetail(await response.json(), apiKey); } catch { /* HTML or empty error body: keep the status hint. */ }
+    const summary = `模型服务返回 ${response.status}：${hints[response.status] || "服务暂时不可用，请稍后再试"}。`;
+    throw new Error(detail ? `${summary}\n服务详情：${detail}` : summary);
   }
   let data;
   try { data = await response.json(); } catch { throw new Error("服务返回了无效 JSON，请检查 API 地址。"); }
